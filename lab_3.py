@@ -160,12 +160,23 @@ class InverseKinematics(Node):
         return theta
 
     def interpolate_triangle(self, t):
-        # Intepolate between the three triangle positions in the self.ee_triangle_positions
+        # Interpolate between the three triangle positions in the self.ee_triangle_positions
         # based on the current time t
-        ################################################################################################
-        # TODO: Implement the interpolation function
-        ################################################################################################
-        return
+        # Implement the interpolation function
+        t_mod = t % 3.0
+        p1 = self.ee_triangle_positions[0]
+        p2 = self.ee_triangle_positions[1]
+        p3 = self.ee_triangle_positions[2]
+        if 0 <= t_mod < 1:
+            alpha = t_mod / 1.0
+            pos = (1 - alpha) * p1 + alpha * p2
+        elif 1 <= t_mod < 2:
+            alpha = (t_mod - 1.0) / 1.0
+            pos = (1 - alpha) * p2 + alpha * p3
+        else:
+            alpha = (t_mod -2.0) / 1.0
+            pos = (1 - alpha) * p3 + alpha * p1
+        return pos
 
     def ik_timer_callback(self):
         if self.joint_positions is not None:
@@ -174,10 +185,11 @@ class InverseKinematics(Node):
             current_ee = self.forward_kinematics(*self.joint_positions)
 
             # update the current time for the triangle interpolation
-            ################################################################################################
-            # TODO: Implement the time update
-            ################################################################################################
-            
+            # Implement the time update
+            self.t += self.timer_period
+            if self.t >= 3.0:        
+                self.t -= 3.0
+
             self.get_logger().info(f'Target EE: {target_ee}, Current EE: {current_ee}, Target Angles: {self.target_joint_positions}, Target Angles to EE: {self.forward_kinematics(*self.target_joint_positions)}, Current Angles: {self.joint_positions}')
 
     def pd_timer_callback(self):
