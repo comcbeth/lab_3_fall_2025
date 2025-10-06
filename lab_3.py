@@ -101,18 +101,18 @@ class InverseKinematics(Node):
         PI = np.pi
 
         # T_0_1 (base_link to leg_front_l_1)
-        T_0_1 = translation(0.07500, 0.0445, 0) @ rotation_x(PI/2) @ rotation_z(theta1)
+        T_0_1 = translation(0.07500, -0.0445, 0) @ rotation_x(PI/2) @ rotation_z(theta1)
 
         # T_1_2 (leg_front_l_1 to leg_front_l_2)
         ## The transformation matrix from leg_front_l_1 to leg_front_l_2
-        T_1_2 = translation(0, 0, -0.039) @ rotation_y(-PI/2) @ rotation_z(theta2)
+        T_1_2 = translation(0, 0, 0.039) @ rotation_y(-PI/2) @ rotation_z(theta2)
 
         # T_2_3 (leg_front_l_2 to leg_front_l_3)
         ## Transformation matrix from leg_front_l_2 to leg_front_l_3
-        T_2_3 = translation(0, -0.0494, 0.0685) @ rotation_y(PI/2) @ rotation_z(-theta3)
+        T_2_3 = translation(0, -0.0494, 0.0685) @ rotation_y(PI/2) @ rotation_z(theta3)
 
         # T_3_ee (leg_front_l_3 to end-effector)
-        T_3_ee = translation(0.06231, -0.06216, -0.018)
+        T_3_ee = translation(0.06231, -0.06216, 0.018)
 
         # The final transformation. T_0_ee is the multiplication of the previous transformation matrices
         T_0_ee = T_0_1 @ T_1_2 @ T_2_3 @ T_3_ee
@@ -130,7 +130,11 @@ class InverseKinematics(Node):
             # TODO: Implement the cost function
             # HINT: You can use the * notation on a list to "unpack" a list
             ################################################################################################
-            return None, None
+            theta1, theta2, theta3 = theta
+            curr_ee = self.forward_kinematics(theta1, theta2, theta3)
+            l1 = np.array(curr_ee) - np.array(target_ee)
+            cost = np.linalg.norm(C)**2
+            return cost, l1
 
         def gradient(theta, epsilon=1e-3):
             # Compute the gradient of the cost function using finite differences
