@@ -133,7 +133,7 @@ class InverseKinematics(Node):
             theta1, theta2, theta3 = theta
             curr_ee = self.forward_kinematics(theta1, theta2, theta3)
             l1 = np.array(curr_ee) - np.array(target_ee)
-            cost = np.linalg.norm(C)**2
+            cost = np.linalg.norm(l1)**2
             return cost, l1
 
         def gradient(theta, epsilon=1e-3):
