@@ -178,6 +178,7 @@ class InverseKinematics(Node):
             pos = (1 - alpha) * p3 + alpha * p1
         return pos
     
+        #Numpy Function
         '''
         p1, p2, p3 = self.ee_triangle_positions
 
