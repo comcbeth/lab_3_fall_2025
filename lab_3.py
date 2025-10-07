@@ -177,6 +177,23 @@ class InverseKinematics(Node):
             alpha = (t_mod -2.0) / 1.0
             pos = (1 - alpha) * p3 + alpha * p1
         return pos
+    
+        '''
+        p1, p2, p3 = self.ee_triangle_positions
+
+        key_times = np.array([0.0, 1.0, 2.0, 3.0])
+        t_mod = t % 3.0
+
+        x_points = np.array([p1[0], p2[0], p3[0], p1[0]])
+        y_points = np.array([p1[1], p2[1], p3[1], p1[1]])
+        z_points = np.array([p1[2], p2[2], p3[2], p1[2]])
+
+        x = np.interp(t_mod, key_times, x_points)
+        y = np.interp(t_mod, key_times, y_points)
+        z = np.interp(t_mod, key_times, z_points)
+
+        return np.array([x, y, z])
+        '''
 
     def ik_timer_callback(self):
         if self.joint_positions is not None:
