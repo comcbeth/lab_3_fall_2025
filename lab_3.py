@@ -3,6 +3,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64MultiArray
 import numpy as np
+import math
 np.set_printoptions(precision=3, suppress=True)
 
 Kp = 3
@@ -101,18 +102,18 @@ class InverseKinematics(Node):
         PI = np.pi
 
         # T_0_1 (base_link to leg_front_l_1)
-        T_0_1 = translation(0.07500, 0.0445, 0) @ rotation_x(PI/2) @ rotation_z(theta1)
+        T_0_1 = translation(0.07500, -0.0445, 0) @ rotation_x(PI/2) @ rotation_z(theta1)
 
         # T_1_2 (leg_front_l_1 to leg_front_l_2)
         ## The transformation matrix from leg_front_l_1 to leg_front_l_2
-        T_1_2 = translation(0, 0, -0.039) @ rotation_y(-PI/2) @ rotation_z(theta2)
+        T_1_2 = translation(0, 0, 0.039) @ rotation_y(-PI/2) @ rotation_z(theta2)
 
         # T_2_3 (leg_front_l_2 to leg_front_l_3)
         ## Transformation matrix from leg_front_l_2 to leg_front_l_3
-        T_2_3 = translation(0, -0.0494, 0.0685) @ rotation_y(PI/2) @ rotation_z(-theta3)
+        T_2_3 = translation(0, -0.0494, 0.0685) @ rotation_y(PI/2) @ rotation_z(theta3)
 
         # T_3_ee (leg_front_l_3 to end-effector)
-        T_3_ee = translation(0.06231, -0.06216, -0.018)
+        T_3_ee = translation(0.06231, -0.06216, 0.018)
 
         # The final transformation. T_0_ee is the multiplication of the previous transformation matrices
         T_0_ee = T_0_1 @ T_1_2 @ T_2_3 @ T_3_ee
@@ -130,19 +131,28 @@ class InverseKinematics(Node):
             # TODO: Implement the cost function
             # HINT: You can use the * notation on a list to "unpack" a list
             ################################################################################################
-            return None, None
+            theta1, theta2, theta3 = theta
+            curr_ee = self.forward_kinematics(theta1, theta2, theta3)
+            error_vec = np.array(curr_ee) - np.array(target_ee)
+            cost = np.dot(error_vec, error_vec)  # squared L2 norm
+            return cost, error_vec
 
-        def gradient(theta, epsilon=1e-3):
-            # Compute the gradient of the cost function using finite differences
-            ################################################################################################
-            # TODO: Implement the gradient computation
-            ################################################################################################
-            return
+        def gradient(theta, epsilon=1e-6):
+            # Ensure numpy array copy
+            theta = np.asarray(theta, dtype=float)
+            grad = np.zeros_like(theta)
+            for i in range(theta.size):
+                e = np.zeros_like(theta)
+                e[i] = epsilon
+                cost_plus = cost_function(theta + e)[0]
+                cost_minus = cost_function(theta - e)[0]
+                grad[i] = (cost_plus - cost_minus) / (2.0 * epsilon)
+            return grad
 
         theta = np.array(initial_guess)
-        learning_rate = None # TODO: Set the learning rate
-        max_iterations = None # TODO: Set the maximum number of iterations
-        tolerance = None # TODO: Set the tolerance for the L1 norm of the error
+        learning_rate = 5  # The learning rate
+        max_iterations = 10000 # The maximum number of iterations
+        tolerance = 1 / 1000 # One mm: the tolerance for the L1 norm of the error
 
         cost_l = []
         for _ in range(max_iterations):
@@ -155,7 +165,15 @@ class InverseKinematics(Node):
             # TODO (BONUS): Implement the (quasi-)Newton's method instead of finite differences for faster convergence
             ################################################################################################
 
-        # print(f'Cost: {cost_l}') # Use to debug to see if you cost function converges within max_iterations
+            theta = theta - grad * learning_rate
+            cost, displacement = cost_function(theta)
+
+            if np.linalg.norm(displacement) < tolerance:
+                break
+            
+            cost_l.append(cost)
+            
+        print(f'Cost: {cost_l}') # Use to debug to see if you cost function converges within max_iterations
 
         return theta
 
@@ -168,33 +186,15 @@ class InverseKinematics(Node):
         p2 = self.ee_triangle_positions[1]
         p3 = self.ee_triangle_positions[2]
         if 0 <= t_mod < 1:
-            alpha = t_mod / 1.0
+            alpha = t_mod
             pos = (1 - alpha) * p1 + alpha * p2
         elif 1 <= t_mod < 2:
-            alpha = (t_mod - 1.0) / 1.0
+            alpha = (t_mod - 1.0)
             pos = (1 - alpha) * p2 + alpha * p3
         else:
-            alpha = (t_mod -2.0) / 1.0
+            alpha = (t_mod - 2.0)
             pos = (1 - alpha) * p3 + alpha * p1
         return pos
-    
-        #Numpy Function
-        '''
-        p1, p2, p3 = self.ee_triangle_positions
-
-        key_times = np.array([0.0, 1.0, 2.0, 3.0])
-        t_mod = t % 3.0
-
-        x_points = np.array([p1[0], p2[0], p3[0], p1[0]])
-        y_points = np.array([p1[1], p2[1], p3[1], p1[1]])
-        z_points = np.array([p1[2], p2[2], p3[2], p1[2]])
-
-        x = np.interp(t_mod, key_times, x_points)
-        y = np.interp(t_mod, key_times, y_points)
-        z = np.interp(t_mod, key_times, z_points)
-
-        return np.array([x, y, z])
-        '''
 
     def ik_timer_callback(self):
         if self.joint_positions is not None:
@@ -202,11 +202,8 @@ class InverseKinematics(Node):
             self.target_joint_positions = self.inverse_kinematics(target_ee, self.joint_positions)
             current_ee = self.forward_kinematics(*self.joint_positions)
 
-            # update the current time for the triangle interpolation
-            # Implement the time update
-            self.t += self.timer_period
-            if self.t >= 3.0:        
-                self.t -= 3.0
+            # Update the timer t
+            self.t += self.ik_timer_period
 
             self.get_logger().info(f'Target EE: {target_ee}, Current EE: {current_ee}, Target Angles: {self.target_joint_positions}, Target Angles to EE: {self.forward_kinematics(*self.target_joint_positions)}, Current Angles: {self.joint_positions}')
 
