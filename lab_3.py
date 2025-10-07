@@ -173,7 +173,7 @@ class InverseKinematics(Node):
             
             cost_l.append(cost)
             
-        print(f'Cost: {cost_l}') # Use to debug to see if you cost function converges within max_iterations
+        #print(f'Cost: {cost_l}') # Use to debug to see if you cost function converges within max_iterations
 
         return theta
 
